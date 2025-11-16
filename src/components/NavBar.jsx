@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 const NavBar = () => {
 
     const user = useSelector((state) => state.user);
+    
     const navigate = useNavigate();
     const dispatch = useDispatch();
   const handleLogout = async () => {
@@ -43,7 +44,8 @@ const NavBar = () => {
         <div className="w-10 rounded-full">
           <img
             alt="Tailwind CSS Navbar component"
-            src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" />
+            // src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" />
+            src={user.photoUrl}/>
         </div>
       </div>
       <ul
