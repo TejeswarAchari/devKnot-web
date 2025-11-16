@@ -32,11 +32,18 @@ const Feed = () => {
     getFeed();
   }, []); // run only once
 
+  if(!feed) return null;
+
+  if(feed.length === 0) return <h1 className="justify-center my-10 text-2xl text-center">No New Users Found</h1>;
+
 return (
   
   feed && (
     <div className="flex justify-center my-10">
-      <UserCard user={feed[1]} />
+      <UserCard user={feed[0]} />
+       {/* {feed.map((user) => (
+        <UserCard key={user._id} user={user} />
+      ))} */}
     </div>
   )
 );
