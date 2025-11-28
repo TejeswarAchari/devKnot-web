@@ -113,7 +113,7 @@ const Login = () => {
 
             <button className="btn btn-primary" onClick={isLoginForm?handleLogin:handleSignUp}>{isLoginForm?"Login":"Sign Up"}</button>
           </div>
-          <p className="m-auto cursor-pointer mt-1" onClick={()=>setIsLoginForm((value)=>!value)}>{isLoginForm?"Don't have an account?": "Existing user? SignUp Here" }</p>
+          <p className="m-auto cursor-pointer mt-1" onClick={()=>setIsLoginForm((value)=>!value)}>{isLoginForm?"Don't have an account?": "Existing user? SignIn Here" }</p>
         </div>
       </div>
     </div>
