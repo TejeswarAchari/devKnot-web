@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom';
 import BASEURL from '../utils/constants';
 import { removeUser } from '../utils/userSlice';
 import { useNavigate } from 'react-router-dom';
+import { disconnectSocket } from "../utils/socket";
+
 
 const NavBar = () => {
 
@@ -23,6 +25,7 @@ const NavBar = () => {
     );
 
     dispatch(removeUser());
+    disconnectSocket(); 
     navigate("/login");
   } catch (err) {
     console.log(err);

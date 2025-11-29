@@ -7,6 +7,8 @@ import { Link } from "react-router-dom";
 
 const Connections = () => {
   const connections = useSelector((state) => state.connections);
+  const notifications = useSelector((state) => state.notifications);
+
   const dispatch = useDispatch();
 
   const fetchConnections = async () => {
@@ -60,6 +62,8 @@ const Connections = () => {
       <div className="flex flex-col flex-wrap items-center">
         {connections.map((connection, index) => {
           const userObj = resolveUser(connection);
+         
+
           if (!userObj) return null;
 
           const {
@@ -71,6 +75,8 @@ const Connections = () => {
             gender,
             about,
           } = userObj;
+          const unread = notifications?.[_id] || 0;
+
 
           return (
             <div
@@ -100,9 +106,17 @@ const Connections = () => {
               </div>
 
               {/* Right: Chat button */}
-              <Link to={`/chat/${_id}`}>
-                <button className="btn btn-primary">Chat</button>
-              </Link>
+             <Link to={`/chat/${_id}`}>
+  <button className="btn btn-primary relative">
+    Chat
+    {unread > 0 && (
+      <span className="badge badge-secondary badge-sm absolute -top-2 -right-2">
+        {unread}
+      </span>
+    )}
+  </button>
+</Link>
+
             </div>
           );
         })}

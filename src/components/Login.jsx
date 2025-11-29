@@ -9,7 +9,7 @@ import BASEURL from '../utils/constants';
 const Login = () => {
 
 
-    const [emailId,setEmailId] = useState("tejeswar.achari@example.com");
+    const [emailId,setEmailId] = useState("vteja797@gmail.com");
     const [password,setPassword] = useState("Tejeswar@11");
     const[firstName,setFirstName] = useState("");
     const[lastName,setLastName] = useState("");
