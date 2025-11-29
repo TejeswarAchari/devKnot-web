@@ -44,10 +44,12 @@ const Requests = () => {
   if (!requests) return null;
 
   if (requests.length === 0)
-    return (
-      <h1 className="text-center text-white text-2xl my-10">
-        No Requests Found
-      </h1>
+     return (
+      <div className="flex justify-center items-center min-h-screen py-10">
+        <h1 className="text-center text-white text-2xl">
+          No Requests Found
+        </h1>
+      </div>
     );
 
   return (
