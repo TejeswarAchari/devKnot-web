@@ -1,26 +1,54 @@
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
-import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { addConnections } from "../utils/connectionSlice";
 import { Link } from "react-router-dom";
 
-const Connections = () => {
-  const connections = useSelector((state) => state.connections);
-  const notifications = useSelector((state) => state.notifications);
+const getInitials = (firstName = "", lastName = "") => {
+  const f = (firstName || "").trim();
+  const l = (lastName || "").trim();
+  if (!f && !l) return "?";
+  return `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
+};
 
+// reuse your old resolveUser logic so it matches backend
+const resolveUser = (connection) => {
+  if (!connection) return null;
+
+  if (connection.firstName) return connection;
+
+  if (connection.fromUserId && connection.fromUserId.firstName) {
+    return connection.fromUserId;
+  }
+  if (connection.toUserId && connection.toUserId.firstName) {
+    return connection.toUserId;
+  }
+
+  return null;
+};
+
+const Connections = () => {
   const dispatch = useDispatch();
+
+  // ✅ keep your original slice keys as-is
+  const connections = useSelector((store) => store.connections);
+  const notifications = useSelector((store) => store.notifications);
+
+  const [loading, setLoading] = useState(false);
 
   const fetchConnections = async () => {
     try {
+      setLoading(true);
       const res = await axios.get(BASE_URL + "user/connections", {
         withCredentials: true,
       });
 
-      console.log("Connections API:", res.data);
-      dispatch(addConnections(res.data.data)); // { data: [...] }
+      dispatch(addConnections(res.data.data));
     } catch (err) {
-      console.log("Error fetching connections:", err);
+      console.error("Error fetching connections:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -28,98 +56,174 @@ const Connections = () => {
     fetchConnections();
   }, []);
 
-  if (!connections) return null;
-
-  if (connections.length === 0)
-    return (
-      <h1 className="text-center text-2xl font-bold my-10">
-        No Connections Found
-      </h1>
-    );
-
-  // helper: always return the real user object from any shape
-  const resolveUser = (connection) => {
-    if (!connection) return null;
-
-    // case 1: already a plain user from backend mapping
-    if (connection.firstName) return connection;
-
-    // case 2: still a ConnectionRequest with populated fromUserId/toUserId
-    if (connection.fromUserId && connection.fromUserId.firstName) {
-      return connection.fromUserId;
+  const getUnreadCount = (userId) => {
+    if (!notifications) return 0;
+    // if notifications is a simple map { [userId]: count }
+    if (typeof notifications === "object" && !Array.isArray(notifications)) {
+      return notifications[userId] || 0;
     }
-    if (connection.toUserId && connection.toUserId.firstName) {
-      return connection.toUserId;
+    // if it's an array, try to find matching entry
+    if (Array.isArray(notifications)) {
+      const entry =
+        notifications.find((n) => n.userId === userId) ||
+        notifications.find((n) => n.fromUserId === userId);
+      return entry?.count || entry?.unread || 0;
     }
-
-    return null; // unknown shape
+    return 0;
   };
 
+  const renderEmptyState = () => (
+    <div className="flex flex-1 items-center justify-center px-4 py-10">
+      <div className="max-w-md text-center space-y-4">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-300 via-amber-400 to-neutral-900 bg-clip-text text-transparent">
+          No dev connections yet 👀
+        </h2>
+        <p className="text-sm text-base-content/70">
+          Once you and another dev both show interest, they will appear here as
+          a connection. Start swiping in Discover and accept some requests to
+          build your DevKnot.
+        </p>
+      </div>
+    </div>
+  );
+
+  // ✅ ensure we always work with an array
+  const connectionList = Array.isArray(connections)
+    ? connections
+    : connections?.data || [];
+
   return (
-    <div className="text-center my-10 min-h-screen">
-      <h1 className="text-bold text-3xl mb-6">Connections</h1>
+    <div className="relative flex flex-1 flex-col px-4 pt-6 pb-10">
+      {/* Yellow + black background for this page */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.16),transparent_60%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.92),transparent_55%)]" />
 
-      <div className="flex flex-col flex-wrap items-center">
-        {connections.map((connection, index) => {
-          const userObj = resolveUser(connection);
-         
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-base-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-base-content/70 backdrop-blur">
+              <span className="inline-block h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+              Your Connections
+            </p>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight bg-gradient-to-r from-yellow-300 via-amber-400 to-neutral-900 bg-clip-text text-transparent">
+              People you&apos;re building with
+            </h1>
+            <p className="mt-1 text-sm text-base-content/70">
+              These are developers you&apos;ve matched with. Jump into a chat,
+              share repos, and ship something together.
+            </p>
+          </div>
 
-          if (!userObj) return null;
-
-          const {
-            _id,
-            firstName,
-            lastName,
-            photoUrl,
-            age,
-            gender,
-            about,
-          } = userObj;
-          const unread = notifications?.[_id] || 0;
-
-
-          return (
-            <div
-              key={_id || index}
-              className="flex m-4 p-4 rounded-lg bg-base-300 w-full mx-auto md:w-1/2 lg:w-1/3 shadow items-center justify-between"
-            >
-              {/* Left: Image + details */}
-              <div className="flex items-center gap-4">
-                <img
-                  alt="photo"
-                  className="w-20 h-20 rounded-full object-cover"
-                  src={photoUrl}
-                />
-                <div className="text-left">
-                  <h2 className="font-bold text-xl">
-                    {firstName} {lastName}
-                  </h2>
-
-                  {age && gender && (
-                    <p className="text-sm opacity-80">
-                      {age}, {gender}
-                    </p>
-                  )}
-
-                  <p className="mt-1">{about}</p>
-                </div>
-              </div>
-
-              {/* Right: Chat button */}
-             <Link to={`/chat/${_id}`}>
-  <button className="btn btn-primary relative">
-    Chat
-    {unread > 0 && (
-      <span className="badge badge-secondary badge-sm absolute -top-2 -right-2">
-        {unread}
-      </span>
-    )}
-  </button>
-</Link>
-
+          {connectionList.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-base-200/80 px-3 py-1 text-xs font-medium text-base-content/70 backdrop-blur">
+                {connectionList.length} connection
+                {connectionList.length > 1 ? "s" : ""}
+              </span>
             </div>
-          );
-        })}
+          )}
+        </header>
+
+        {/* {loading && (
+          <div className="flex items-center gap-2 text-sm text-base-content/70">
+            <span className="loading loading-spinner loading-sm" />
+            Syncing your connections...
+          </div>
+        )} */}
+
+        {loading && (
+  <div className="space-y-3">
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div
+        key={i}
+        className="animate-pulse flex items-center gap-3 rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/95 p-3 ring-1 ring-white/5"
+      >
+        {/* Avatar shimmer */}
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500/30 via-yellow-400/20 to-amber-600/30" />
+
+        {/* Text shimmer */}
+        <div className="flex flex-1 flex-col gap-2">
+          <div className="h-3 w-36 rounded-full bg-amber-200/25" />
+          <div className="h-2 w-56 rounded-full bg-amber-200/15" />
+        </div>
+
+        {/* Button shimmer */}
+        <div className="h-7 w-20 rounded-full bg-gradient-to-r from-amber-400/40 to-yellow-300/40" />
+      </div>
+    ))}
+  </div>
+)}
+
+
+        {!loading && connectionList.length === 0 && renderEmptyState()}
+
+        {!loading && connectionList.length > 0 && (
+          <div className="space-y-3">
+            {connectionList.map((conn) => {
+              const profile = resolveUser(conn);
+              if (!profile) return null;
+
+              const {
+                _id,
+                firstName,
+                lastName,
+                photoUrl,
+                about,
+                role,
+                title,
+              } = profile;
+
+              const initials = getInitials(firstName, lastName);
+              const targetUserId = _id;
+
+              const unread = getUnreadCount(targetUserId);
+
+              return (
+                <div
+                  key={conn._id || targetUserId}
+                  className="group flex items-center gap-3 rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/95 p-3 backdrop-blur-xl ring-1 ring-white/10 transition-transform duration-150 hover:-translate-y-[1px] hover:ring-amber-400/60"
+                >
+                  <div className="avatar">
+                    <div className="w-12 rounded-full ring ring-offset-2 ring-offset-slate-900 ring-amber-400/80">
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={`${firstName} {lastName}`} />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 text-lg font-semibold text-slate-900">
+                          {initials}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-semibold text-base-content">
+                        {firstName} {lastName}
+                      </h2>
+                      {unread > 0 && (
+                        <span className="badge badge-xs rounded-full bg-error/90 text-[10px] font-semibold text-error-content shadow-sm">
+                          {unread > 9 ? "9+" : unread}
+                        </span>
+                      )}
+                    </div>
+                    <p className="line-clamp-1 text-[11px] text-base-content/60">
+                      {role || title || "Dev connection"} •{" "}
+                      {about && about.trim().length > 0
+                        ? about
+                        : "Ready to collaborate on something cool."}
+                    </p>
+                  </div>
+
+                  <Link
+                    to={`/chat/${targetUserId}`}
+                    className="btn btn-sm rounded-full border-none bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-[11px] font-semibold text-neutral-900 shadow-md shadow-amber-500/40 hover:brightness-110"
+                  >
+                    Open chat
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

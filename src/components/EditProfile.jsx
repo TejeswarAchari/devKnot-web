@@ -1,175 +1,283 @@
 import React, { useState } from "react";
-import UserCard from "./UserCard";
-import { useDispatch } from "react-redux";
 import axios from "axios";
-import BASEURL from "../utils/constants";
+import BASE_URL from "../utils/constants";
+import { useDispatch } from "react-redux";
 import { addUser } from "../utils/userSlice";
-const EditProfile = ({user}) => {
-   const [firstName, setFirstName] = useState(user.firstName || "");
-  const [lastName, setLastName] = useState(user.lastName || "");
-  const [photoUrl, setPhotoUrl] = useState(user.photoUrl || "");
-  const [age, setAge] = useState(user.age || "");
-  const [gender, setGender] = useState(user.gender || "male");
-  const [about, setAbout] = useState(user.about || "");
-  const [showToast,setToast] = React.useState(false);
-const dispatch = useDispatch();
+import UserCard from "./UserCard";
 
-const saveProfile = async () => {
-  try {
-    const payload = {
-      firstName,
-      lastName,
-      photoUrl,
-      about,
-      gender,
-    };
+/**
+ * EditProfile
+ *
+ * Uses ONLY backend fields you actually have:
+ * - firstName, lastName, age, gender, about, photoUrl
+ *
+ * Backend contract:
+ * - PATCH BASE_URL + "profile/update"
+ * - payload: { firstName, lastName, photoUrl, about, gender, age? }
+ * - dispatch(addUser(res.data.data))
+ * - show toast on success
+ */
 
-    if (age !== "") {
-      payload.age = Number(age);
+const EditProfile = ({ user }) => {
+  const dispatch = useDispatch();
+
+  const [firstName, setFirstName] = useState(user?.firstName || "");
+  const [lastName, setLastName] = useState(user?.lastName || "");
+  const [photoUrl, setPhotoUrl] = useState(user?.photoUrl || "");
+  const [age, setAge] = useState(
+    user?.age === undefined || user?.age === null ? "" : String(user.age)
+  );
+  const [gender, setGender] = useState(user?.gender || "male");
+  const [about, setAbout] = useState(
+    user?.about || "I love building cool stuff with other developers."
+  );
+
+  const [saving, setSaving] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [error, setError] = useState("");
+
+  const saveProfile = async () => {
+    try {
+      setSaving(true);
+      setError("");
+
+      const payload = {
+        firstName,
+        lastName,
+        photoUrl,
+        about,
+        gender,
+      };
+
+      if (age !== "") {
+        payload.age = Number(age);
+      }
+
+      const res = await axios.patch(BASE_URL + "profile/update", payload, {
+        withCredentials: true,
+      });
+
+      // old working shape: res.data.data
+      dispatch(addUser(res.data.data));
+
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      if (err.response) {
+        console.log("Server error:", err.response.data);
+        setError(
+          err.response.data?.message ||
+            err.response.data?.error ||
+            "Unable to update profile."
+        );
+      } else {
+        console.log("Axios error:", err.message);
+        setError("Network error. Please try again.");
+      }
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const res = await axios.patch(
-      BASEURL + "profile/update",
-      payload,
-      { withCredentials: true }
-    );
-
-    dispatch(addUser(res.data.data));
-  setToast(true); // show toast immediately
-
-setTimeout(() => {
-  setToast(false); // hide after 3 seconds
-}, 3000);
-
-    
-  } catch (err) {
-    if (err.response) {
-    console.log("Server error:", err.response.data);  // <- this will show "Error: Gender must be male, female or other"
-  } else {
-    console.log("Axios error:", err.message);
-  }
-  }
-};
-
+  // Build preview user for the UserCard
+  const previewUser = {
+    ...user,
+    firstName,
+    lastName,
+    photoUrl,
+    about,
+    gender,
+    age: age !== "" ? Number(age) : undefined,
+  };
 
   return (
-    <div>
-    <div className="flex justify-center items-center py-8">    
-    <div className="flex justify-center items-center mx-10">
-      {/* smaller card, like in the video */}
-      <div className="w-full max-w-sm bg-base-200 rounded-2xl px-6 py-5 shadow-xl border border-base-300">
-        <h2 className="text-center text-lg font-semibold mb-4">
-          Edit Profile
-        </h2>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      {/* FORM SIDE */}
+      <div className="w-full lg:w-7/12">
+        <div className="rounded-3xl bg-gradient-to-b from-slate-900/95 via-slate-900/98 to-black/95 p-[1.5px] shadow-[0_18px_40px_rgba(0,0,0,0.9)] backdrop-blur-2xl">
+          <div className="rounded-[22px] bg-base-200/90 p-5 backdrop-blur-xl ring-1 ring-white/10">
+            <h2 className="text-lg font-bold text-base-content">
+              Edit your profile
+            </h2>
+            <p className="mt-1 text-xs text-base-content/70">
+              Update your basic info. This is exactly what other devs see before
+              they swipe on you.
+            </p>
 
-        <div className="space-y-3">
-          {/* First Name */}
-          <div>
-            <label className="label py-0">
-              <span className="label-text text-sm">First Name:</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered input-sm w-full"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-          </div>
+            {error && (
+              <div className="mt-3 rounded-2xl border border-error/40 bg-error/10 px-3 py-2 text-xs text-error">
+                {error}
+              </div>
+            )}
 
-          {/* Last Name */}
-          <div>
-            <label className="label py-0">
-              <span className="label-text text-sm">Last Name:</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered input-sm w-full"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
-          </div>
+            <div className="mt-4 space-y-4 text-sm">
+              {/* First + Last name */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-semibold">
+                      First name
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Ada"
+                  />
+                </div>
 
-          {/* Photo URL */}
-          <div>
-            <label className="label py-0">
-              <span className="label-text text-sm">Photo URL :</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered input-sm w-full"
-              value={photoUrl}
-              onChange={(e) => setPhotoUrl(e.target.value)}
-            />
-          </div>
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-semibold">
+                      Last name
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Lovelace"
+                  />
+                </div>
+              </div>
 
-          {/* Age */}
-          <div>
-            <label className="label py-0">
-              <span className="label-text text-sm">Age:</span>
-            </label>
-            <input
-              type="number"
-              className="input input-bordered input-sm w-full"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-            />
-          </div>
+              {/* Age + Gender */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-semibold">
+                      Age
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="22"
+                  />
+                  <label className="label py-1">
+                    <span className="label-text-alt text-[10px] text-base-content/60">
+                      Optional, but helps other devs understand your level.
+                    </span>
+                  </label>
+                </div>
 
-          {/* Gender */}
-<div>
-  <label className="label py-0">
-    <span className="label-text text-sm">Gender:</span>
-  </label>
-  <select
-    className="select select-bordered select-sm w-full"
-    value={gender}
-    onChange={(e) => setGender(e.target.value)}
-  >
-    <option value="male">male</option>
-    <option value="female">female</option>
-    <option value="other">other</option>
-  </select>
-</div>
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text text-xs font-semibold">
+                      Gender
+                    </span>
+                  </label>
+                  <select
+                    className="select select-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                  >
+                    <option value="male">male</option>
+                    <option value="female">female</option>
+                    <option value="other">other</option>
+                  </select>
+                  <label className="label py-1">
+                    <span className="label-text-alt text-[10px] text-base-content/60">
+                      Must be one of: male, female, other.
+                    </span>
+                  </label>
+                </div>
+              </div>
 
+              {/* Photo URL */}
+              <div className="form-control">
+                <label className="label py-1">
+                  <span className="label-text text-xs font-semibold">
+                    Profile photo URL
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="https://your-cdn.com/avatar.png"
+                />
+                <label className="label py-1">
+                  <span className="label-text-alt text-[10px] text-base-content/60">
+                    If empty, we&apos;ll show your initials with a gradient.
+                  </span>
+                </label>
+              </div>
 
+              {/* About */}
+              <div className="form-control">
+                <label className="label py-1">
+                  <span className="label-text text-xs font-semibold">
+                    About you
+                  </span>
+                </label>
+                <textarea
+                  rows={4}
+                  className="textarea textarea-sm w-full rounded-2xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
+                  value={about}
+                  onChange={(e) => setAbout(e.target.value)}
+                  placeholder="What do you like building? What kind of dev are you looking to work with?"
+                />
+                <label className="label py-1">
+                  <span className="label-text-alt text-[10px] text-base-content/60">
+                    This text appears on your Discover card.
+                  </span>
+                </label>
+              </div>
 
-          {/* About */}
-          <div>
-            <label className="label py-0">
-              <span className="label-text text-sm">About:</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered input-sm w-full"
-              value={about}
-              onChange={(e) => setAbout(e.target.value)}
-            />
+              {/* Save button */}
+              <button
+                type="button"
+                onClick={saveProfile}
+                disabled={saving}
+                className="btn mt-2 w-full rounded-2xl border-none bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-sm font-semibold text-neutral-900 shadow-lg shadow-amber-500/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {saving ? (
+                  <>
+                    <span className="loading loading-spinner loading-xs" />
+                    <span className="ml-1">Saving your profile...</span>
+                  </>
+                ) : (
+                  "Save profile"
+                )}
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Save Button */}
-        <button onClick={saveProfile} className="btn btn-primary btn-sm w-full mt-5">
-          Save Profile
-        </button>
       </div>
-    </div>
 
-    <UserCard user={{firstName, lastName, photoUrl, age, gender, about}}/>
+      {/* LIVE PREVIEW SIDE */}
+      <div className="w-full lg:w-5/12 mt-4 lg:mt-0">
+        <div className="sticky top-20">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">
+            Live preview
+          </p>
+          <p className="mb-3 text-[11px] text-base-content/60">
+            This is how your card will appear in the Discover feed.
+          </p>
+          <div className="h-[460px]">
+            <UserCard user={previewUser} />
+          </div>
+        </div>
+      </div>
 
-    </div>
-    <>
- {showToast && (
-        <div className="toast toast-top toast-center">
+      {/* Toast */}
+      {showToast && (
+        <div className="toast toast-top toast-center z-[60] top-16">
           <div className="alert alert-success">
             <span>Profile updated successfully.</span>
           </div>
         </div>
       )}
-    </>
     </div>
   );
-  
-
 };
 
 export default EditProfile;
