@@ -5,10 +5,13 @@ import daisyui from "daisyui";
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,jsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",   // ⭐ added ts, tsx support
   ],
 
-  // You can put other tailwind `theme.extend` here if you need later
+  future: {
+    hoverOnlyWhenSupported: true,   // ⭐ safe production optimization
+  },
+
   theme: {
     extend: {},
   },

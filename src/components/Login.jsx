@@ -52,44 +52,6 @@ const Login = () => {
 };
 
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   setError("");
-  //   setLoading(true);
-
-  //   try {
-  //     const endpoint = isLogin ? "login" : "signup";
-
-  //     const payload = isLogin
-  //       ? {
-  //           email: formData.email,
-  //           password: formData.password,
-  //         }
-  //       : {
-  //           firstName: formData.firstName,
-  //           lastName: formData.lastName,
-  //           email: formData.email,
-  //           password: formData.password,
-  //         };
-
-  //     const res = await axios.post(BASE_URL + endpoint, payload, {
-  //       withCredentials: true,
-  //     });
-
-  //     const userData = res.data?.user || res.data;
-  //     dispatch(addUser(userData));
-  //     navigate("/");
-  //   } catch (err) {
-  //     console.error("Auth error:", err);
-  //     const msg =
-  //       err?.response?.data?.message ||
-  //       err?.response?.data?.error ||
-  //       "Something went wrong. Please try again.";
-  //     setError(msg);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 const handleSubmit = async (e) => {
   e.preventDefault();
   setError("");

@@ -1,5 +1,6 @@
 
 
+
 // src/components/Chat.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -72,6 +73,21 @@ const Chat = () => {
         });
 
         setMessages(history);
+
+        // ⭐ NEW: when you open this chat, mark all incoming messages as delivered/seen
+        // so sender's "last message" status updates even if they weren't online earlier.
+        const socket = getSocket();
+        history
+          .filter((m) => !m.self && m.status !== "seen")
+          .forEach((m) => {
+            // first mark as delivered
+            socket.emit("messageDelivered", { messageId: m._id });
+            // then mark as seen (slight delay to mimic real-time behavior)
+            setTimeout(() => {
+              socket.emit("messageSeen", { messageId: m._id });
+            }, 500);
+          });
+        // ⭐ END NEW
       } catch (err) {
         console.error("Error loading history:", err);
       } finally {
