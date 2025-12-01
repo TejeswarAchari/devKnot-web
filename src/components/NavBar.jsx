@@ -6,7 +6,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import BASEURL from "../utils/constants";
 import { removeUser } from "../utils/userSlice";
 import { disconnectSocket } from "../utils/socket";
-import devKnotLogo from "../utils/devKnotLogo.png";
+import devknotLogo from "../assets/logo.png";
 
 const getInitials = (firstName = "", lastName = "") => {
   const f = (firstName || "").trim();
@@ -79,7 +79,7 @@ const NavBar = () => {
             className="flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-slate-800/60 transition-colors"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 text-xs font-bold text-neutral-900 shadow-[0_0_18px_rgba(250,204,21,0.65)]">
-              <span><img src={devKnotLogo} alt="DevKnot" /></span>
+              <span><img src={devknotLogo} alt="DevKnot" /></span>
             </div>
             <div className="hidden flex-col leading-tight sm:flex">
               <span className="text-sm font-semibold tracking-tight text-slate-50">
