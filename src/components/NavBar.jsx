@@ -6,7 +6,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import BASEURL from "../utils/constants";
 import { removeUser } from "../utils/userSlice";
 import { disconnectSocket } from "../utils/socket";
-import devknotLogo from "../assets/logo.png";
+import devknotLogo from "../assets/devknotLogo.png";
 
 const getInitials = (firstName = "", lastName = "") => {
   const f = (firstName || "").trim();

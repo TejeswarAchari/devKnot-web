@@ -1,5 +1,6 @@
 // src/components/Footer.jsx
 import React from "react";
+import devknotLogo from "../assets/devknotLogo.png";
 
 const Footer = () => {
   return (
@@ -8,7 +9,7 @@ const Footer = () => {
         
         {/* Brand + text */}
         <aside className="flex items-center gap-2 text-[11px]">
-          <img className="h-5" src="logo.png"/>
+          <img className="h-5" src={devknotLogo}/>
           <span className="text-amber-400 font-bold"> DevKnot</span>
           <span>© {new Date().getFullYear()} — All rights reserved.</span>
         </aside>
