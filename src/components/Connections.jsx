@@ -1,4 +1,7 @@
 
+
+
+// src/components/Connections.jsx
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
@@ -14,26 +17,20 @@ const getInitials = (firstName = "", lastName = "") => {
   return `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
 };
 
-// reuse your old resolveUser logic
 const resolveUser = (connection) => {
   if (!connection) return null;
-
   if (connection.firstName) return connection;
-
   if (connection.fromUserId && connection.fromUserId.firstName) {
     return connection.fromUserId;
   }
   if (connection.toUserId && connection.toUserId.firstName) {
     return connection.toUserId;
   }
-
   return null;
 };
 
 const Connections = () => {
   const dispatch = useDispatch();
-
-  // Redux slices
   const connections = useSelector((store) => store.connections);
   const notifications = useSelector(
     (store) => store.notifications || store.notification
@@ -41,7 +38,9 @@ const Connections = () => {
 
   const [loading, setLoading] = useState(false);
 
-  // 🔗 online + lastSeen from context
+  // 🔥 NEW: search by first name
+  const [searchTerm, setSearchTerm] = useState(""); // <-- added
+
   const { onlineUsers, lastSeenMap, formatLastSeen } =
     useContext(OnlineStatusContext) || {};
 
@@ -51,7 +50,6 @@ const Connections = () => {
       const res = await axios.get(BASE_URL + "user/connections", {
         withCredentials: true,
       });
-
       dispatch(addConnections(res.data.data));
     } catch (err) {
       console.error("Error fetching connections:", err);
@@ -63,9 +61,6 @@ const Connections = () => {
   useEffect(() => {
     fetchConnections();
   }, []);
-
-  
-
 
   const getUnreadCount = (userId) => {
     if (!notifications) return 0;
@@ -100,7 +95,15 @@ const Connections = () => {
     ? connections
     : connections?.data || [];
 
-  // 🦴 shimmer skeleton while loading first time
+  // 🔥 NEW: filter based on search
+  const filteredConnections = connectionList.filter((conn) => {
+    const profile = resolveUser(conn);
+    if (!profile) return false;
+    return profile.firstName
+      ?.toLowerCase()
+      .includes(searchTerm.trim().toLowerCase());
+  });
+
   const renderShimmer = () => (
     <div className="space-y-3">
       {Array.from({ length: 4 }).map((_, idx) => (
@@ -123,7 +126,6 @@ const Connections = () => {
 
   return (
     <div className="relative flex flex-1 flex-col px-4 pt-6 pb-10">
-      {/* Yellow + black background */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.16),transparent_60%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.92),transparent_55%)]" />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -152,26 +154,57 @@ const Connections = () => {
           )}
         </header>
 
+        {/* 🔥 NEW: Search Input */}
+        {connectionList.length > 0 && (
+          <div className="w-full">
+            <input
+              type="text"
+              placeholder="Search by first name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input input-sm w-full rounded-2xl bg-slate-900/90 border border-slate-700 text-sm text-slate-100 placeholder:text-slate-400 shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+            />
+          </div>
+        )}
+
         {loading && renderShimmer()}
 
-        {!loading && connectionList.length === 0 && renderEmptyState()}
+        {!loading && filteredConnections.length === 0 && searchTerm && (
+          <p className="text-center text-sm text-base-content/60 pt-4">
+            No matches found for <span className="font-semibold">"{searchTerm}"</span>
+          </p>
+        )}
 
-        {!loading && connectionList.length > 0 && (
+        {!loading && !searchTerm && connectionList.length === 0 && renderEmptyState()}
+
+        {!loading && filteredConnections.length > 0 && (
           <div className="space-y-3">
-            {connectionList.map((conn) => {
+            {filteredConnections
+  // 🔥 SORT: unread first → online second → others
+  .sort((a, b) => {
+    const userA = resolveUser(a);
+    const userB = resolveUser(b);
+    if (!userA || !userB) return 0;
+
+    const unreadA = getUnreadCount(userA._id);
+    const unreadB = getUnreadCount(userB._id);
+
+    // 1️⃣ unread first (descending)
+    if (unreadA !== unreadB) return unreadB - unreadA;
+
+    const onlineA = onlineUsers?.[userA._id] ? 1 : 0;
+    const onlineB = onlineUsers?.[userB._id] ? 1 : 0;
+
+    // 2️⃣ online before offline
+    if (onlineA !== onlineB) return onlineB - onlineA;
+
+    // 3️⃣ fallback alphabetical for stable UX
+    return userA.firstName.localeCompare(userB.firstName);
+  }).map((conn) => {
               const profile = resolveUser(conn);
               if (!profile) return null;
 
-              const {
-                _id,
-                firstName,
-                lastName,
-                photoUrl,
-                about,
-                role,
-                title,
-              } = profile;
-
+              const { _id, firstName, lastName, photoUrl, about, role, title } = profile;
               const initials = getInitials(firstName, lastName);
               const targetUserId = _id;
               const unread = getUnreadCount(targetUserId);
