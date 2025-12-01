@@ -37,45 +37,102 @@ const Login = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  const fetchAndStoreUser = async () => {
+  try {
+    const res = await axios.get(BASE_URL + "profile/view", {
+      withCredentials: true,
+    });
 
-    try {
-      const endpoint = isLogin ? "login" : "signup";
+    // your backend earlier used res.data for user in Body.jsx
+    const userData = res.data?.user || res.data?.data || res.data;
+    dispatch(addUser(userData));
+  } catch (err) {
+    console.error("Error fetching profile after auth:", err);
+  }
+};
 
-      const payload = isLogin
-        ? {
-            email: formData.email,
-            password: formData.password,
-          }
-        : {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            password: formData.password,
-          };
 
-      const res = await axios.post(BASE_URL + endpoint, payload, {
-        withCredentials: true,
-      });
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   setError("");
+  //   setLoading(true);
 
-      const userData = res.data?.user || res.data;
-      dispatch(addUser(userData));
-      navigate("/");
-    } catch (err) {
-      console.error("Auth error:", err);
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Something went wrong. Please try again.";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   try {
+  //     const endpoint = isLogin ? "login" : "signup";
 
+  //     const payload = isLogin
+  //       ? {
+  //           email: formData.email,
+  //           password: formData.password,
+  //         }
+  //       : {
+  //           firstName: formData.firstName,
+  //           lastName: formData.lastName,
+  //           email: formData.email,
+  //           password: formData.password,
+  //         };
+
+  //     const res = await axios.post(BASE_URL + endpoint, payload, {
+  //       withCredentials: true,
+  //     });
+
+  //     const userData = res.data?.user || res.data;
+  //     dispatch(addUser(userData));
+  //     navigate("/");
+  //   } catch (err) {
+  //     console.error("Auth error:", err);
+  //     const msg =
+  //       err?.response?.data?.message ||
+  //       err?.response?.data?.error ||
+  //       "Something went wrong. Please try again.";
+  //     setError(msg);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
+
+  try {
+    const endpoint = isLogin ? "login" : "signup";
+
+    const payload = isLogin
+      ? {
+          email: formData.email,
+          password: formData.password,
+        }
+      : {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+        };
+
+    // 1️⃣ Hit login / signup as usual
+    await axios.post(BASE_URL + endpoint, payload, {
+      withCredentials: true,
+    });
+
+    // 2️⃣ Immediately fetch the full, canonical profile
+    await fetchAndStoreUser();
+
+    // 3️⃣ Go to home (or profile if you prefer)
+    navigate("/");
+  } catch (err) {
+    console.error("Auth error:", err);
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      "Something went wrong. Please try again.";
+    setError(msg);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  
   const switchMode = (nextMode) => {
     if (mode === nextMode) return;
     setMode(nextMode);

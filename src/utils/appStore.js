@@ -4,6 +4,7 @@ import feedReducer from "./feedSlice";
 import connectionReducer from "./connectionSlice";
 import requestreducer from "./requestSlice";
 import notificationReducer from "./notificationSlice";
+import onlineReducer from "./onlineSlice";
 
 const appStore = configureStore({
   reducer: {
@@ -12,6 +13,8 @@ const appStore = configureStore({
     connections:connectionReducer,
     requests:requestreducer,
         notifications: notificationReducer, 
+        online: onlineReducer,
+
   },
 });
 

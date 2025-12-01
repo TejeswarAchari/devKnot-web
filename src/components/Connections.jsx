@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+
+import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
 import { useDispatch, useSelector } from "react-redux";
 import { addConnections } from "../utils/connectionSlice";
 import { Link } from "react-router-dom";
+import { OnlineStatusContext } from "./Body";
 
 const getInitials = (firstName = "", lastName = "") => {
   const f = (firstName || "").trim();
@@ -12,7 +14,7 @@ const getInitials = (firstName = "", lastName = "") => {
   return `${f.charAt(0)}${l.charAt(0)}`.toUpperCase();
 };
 
-// reuse your old resolveUser logic so it matches backend
+// reuse your old resolveUser logic
 const resolveUser = (connection) => {
   if (!connection) return null;
 
@@ -31,11 +33,17 @@ const resolveUser = (connection) => {
 const Connections = () => {
   const dispatch = useDispatch();
 
-  // ✅ keep your original slice keys as-is
+  // Redux slices
   const connections = useSelector((store) => store.connections);
-  const notifications = useSelector((store) => store.notifications);
+  const notifications = useSelector(
+    (store) => store.notifications || store.notification
+  );
 
   const [loading, setLoading] = useState(false);
+
+  // 🔗 online + lastSeen from context
+  const { onlineUsers, lastSeenMap, formatLastSeen } =
+    useContext(OnlineStatusContext) || {};
 
   const fetchConnections = async () => {
     try {
@@ -56,13 +64,14 @@ const Connections = () => {
     fetchConnections();
   }, []);
 
+  
+
+
   const getUnreadCount = (userId) => {
     if (!notifications) return 0;
-    // if notifications is a simple map { [userId]: count }
     if (typeof notifications === "object" && !Array.isArray(notifications)) {
       return notifications[userId] || 0;
     }
-    // if it's an array, try to find matching entry
     if (Array.isArray(notifications)) {
       const entry =
         notifications.find((n) => n.userId === userId) ||
@@ -87,14 +96,34 @@ const Connections = () => {
     </div>
   );
 
-  // ✅ ensure we always work with an array
   const connectionList = Array.isArray(connections)
     ? connections
     : connections?.data || [];
 
+  // 🦴 shimmer skeleton while loading first time
+  const renderShimmer = () => (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <div
+          key={idx}
+          className="flex items-center gap-3 rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/95 p-3"
+        >
+          <div className="avatar">
+            <div className="w-12 rounded-full bg-slate-800 animate-pulse" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-32 rounded-full bg-slate-800 animate-pulse" />
+            <div className="h-2 w-48 rounded-full bg-slate-800/80 animate-pulse" />
+          </div>
+          <div className="h-7 w-20 rounded-full bg-slate-800 animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="relative flex flex-1 flex-col px-4 pt-6 pb-10">
-      {/* Yellow + black background for this page */}
+      {/* Yellow + black background */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.16),transparent_60%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.92),transparent_55%)]" />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -123,36 +152,7 @@ const Connections = () => {
           )}
         </header>
 
-        {/* {loading && (
-          <div className="flex items-center gap-2 text-sm text-base-content/70">
-            <span className="loading loading-spinner loading-sm" />
-            Syncing your connections...
-          </div>
-        )} */}
-
-        {loading && (
-  <div className="space-y-3">
-    {Array.from({ length: 4 }).map((_, i) => (
-      <div
-        key={i}
-        className="animate-pulse flex items-center gap-3 rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/95 p-3 ring-1 ring-white/5"
-      >
-        {/* Avatar shimmer */}
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500/30 via-yellow-400/20 to-amber-600/30" />
-
-        {/* Text shimmer */}
-        <div className="flex flex-1 flex-col gap-2">
-          <div className="h-3 w-36 rounded-full bg-amber-200/25" />
-          <div className="h-2 w-56 rounded-full bg-amber-200/15" />
-        </div>
-
-        {/* Button shimmer */}
-        <div className="h-7 w-20 rounded-full bg-gradient-to-r from-amber-400/40 to-yellow-300/40" />
-      </div>
-    ))}
-  </div>
-)}
-
+        {loading && renderShimmer()}
 
         {!loading && connectionList.length === 0 && renderEmptyState()}
 
@@ -174,24 +174,33 @@ const Connections = () => {
 
               const initials = getInitials(firstName, lastName);
               const targetUserId = _id;
-
               const unread = getUnreadCount(targetUserId);
+
+              const isOnline = !!onlineUsers?.[targetUserId];
+              const lastSeenIso = lastSeenMap?.[targetUserId];
+              const lastSeenText =
+                !isOnline && lastSeenIso && formatLastSeen
+                  ? formatLastSeen(lastSeenIso)
+                  : null;
 
               return (
                 <div
                   key={conn._id || targetUserId}
                   className="group flex items-center gap-3 rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/95 p-3 backdrop-blur-xl ring-1 ring-white/10 transition-transform duration-150 hover:-translate-y-[1px] hover:ring-amber-400/60"
                 >
-                  <div className="avatar">
-                    <div className="w-12 rounded-full ring ring-offset-2 ring-offset-slate-900 ring-amber-400/80">
+                  <div className="avatar relative">
+                    <div className="w-12 rounded-full ring ring-offset-2 ring-offset-slate-900 ring-amber-400/80 overflow-hidden">
                       {photoUrl ? (
-                        <img src={photoUrl} alt={`${firstName} {lastName}`} />
+                        <img src={photoUrl} alt={`${firstName} ${lastName}`} />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 text-lg font-semibold text-slate-900">
                           {initials}
                         </div>
                       )}
                     </div>
+                    {isOnline && (
+                      <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border border-slate-900 bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.45)] animate-pulse" />
+                    )}
                   </div>
 
                   <div className="flex flex-1 flex-col gap-0.5">
@@ -204,12 +213,22 @@ const Connections = () => {
                           {unread > 9 ? "9+" : unread}
                         </span>
                       )}
+                      {isOnline && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Online
+                        </span>
+                      )}
                     </div>
                     <p className="line-clamp-1 text-[11px] text-base-content/60">
-                      {role || title || "Dev connection"} •{" "}
-                      {about && about.trim().length > 0
-                        ? about
-                        : "Ready to collaborate on something cool."}
+                      {role || title || "Dev connection"}
+                      {" • "}
+                      {isOnline
+                        ? "Available to chat"
+                        : lastSeenText ||
+                          (about && about.trim().length > 0
+                            ? about
+                            : "Ready to collaborate on something cool.")}
                     </p>
                   </div>
 

@@ -9,13 +9,16 @@ import Connections from "./components/Connections";
 import Requests from "./components/Requests";
 import Chat from "./components/Chat";
 import NotFound from "./components/NotFound"; 
+import NetworkStatusToast from "./components/NetworkStatusToast";
 
 function App() {
   return (
-    <>
+    // <>
     <Provider store={appStore}>
     <BrowserRouter basename="/">
+      <NetworkStatusToast />
       <Routes>
+        
         <Route path="/" element={<Body />} >
         <Route path="/" element={<Feed/>}/>
         <Route path="/login" element={<Login/>}/>
@@ -28,7 +31,7 @@ function App() {
       </Routes>
     </BrowserRouter>
     </Provider>
-    </>
+    // </>
   );
 }
 

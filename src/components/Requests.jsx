@@ -1,21 +1,11 @@
-import React, { useEffect, useState } from "react";
+
+
+import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
 import { useDispatch, useSelector } from "react-redux";
 import { addRequests, removeRequests } from "../utils/requestSlice";
-
-/**
- * Requests = Incoming connection requests
- * - Fetches your pending requests
- * - Allows Accept / Reject
- * - Updates requestSlice via addRequests / removeRequests
- *
- * 🔧 Logic is aligned with the old working version:
- * - uses store.requests (plural)
- * - hits GET `${BASE_URL}user/requests/received`
- * - passes res.data.data into addRequests
- * - uses fromUserId as the main user object
- */
+import { OnlineStatusContext } from "./Body";
 
 const getInitials = (firstName = "", lastName = "") => {
   const f = (firstName || "").trim();
@@ -37,16 +27,11 @@ const normalizeSkills = (skills) => {
 const resolveUserFromRequest = (req) => {
   if (!req) return null;
 
-  // ✅ main case: your backend: request.fromUserId
   if (req.fromUserId && req.fromUserId.firstName) return req.fromUserId;
-
-  // other defensive fallbacks if you ever change backend
   if (req.fromUser && req.fromUser.firstName) return req.fromUser;
   if (req.sender && req.sender.firstName) return req.sender;
   if (req.user && req.user.firstName) return req.user;
   if (req.creator && req.creator.firstName) return req.creator;
-
-  // if the request itself is already the user
   if (req.firstName) return req;
 
   return null;
@@ -55,10 +40,12 @@ const resolveUserFromRequest = (req) => {
 const Requests = () => {
   const dispatch = useDispatch();
 
-  // ✅ correct slice name: 'requests' (plural) to match your old working code
   const requests = useSelector((store) => store.requests);
-
   const [loading, setLoading] = useState(false);
+
+  // 🔗 online + lastSeen from context
+  const { onlineUsers, lastSeenMap, formatLastSeen } =
+    useContext(OnlineStatusContext) || {};
 
   const fetchRequests = async () => {
     try {
@@ -109,8 +96,36 @@ const Requests = () => {
     </div>
   );
 
-  // always treat as array safely
   const requestList = Array.isArray(requests) ? requests : requests || [];
+
+  // shimmer for loading
+  const renderShimmer = () => (
+    <div className="grid gap-4 md:grid-cols-2">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <div
+          key={idx}
+          className="relative overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.35),transparent_60%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.95),transparent_55%)] p-[1.5px]"
+        >
+          <div className="flex h-full flex-col gap-3 rounded-3xl bg-gradient-to-b from-slate-900/95 via-slate-900/98 to-black/95 p-4">
+            <div className="flex items-center gap-3">
+              <div className="avatar">
+                <div className="w-12 rounded-full bg-slate-800 animate-pulse" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-24 rounded-full bg-slate-800 animate-pulse" />
+                <div className="h-2 w-40 rounded-full bg-slate-800/80 animate-pulse" />
+              </div>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-800/70 animate-pulse" />
+            <div className="flex gap-2 mt-2">
+              <div className="h-7 flex-1 rounded-full bg-slate-800 animate-pulse" />
+              <div className="h-7 flex-1 rounded-full bg-slate-800 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="relative flex flex-1 flex-col px-4 pt-6 pb-10">
@@ -141,57 +156,7 @@ const Requests = () => {
           )}
         </header>
 
-        {/* {loading && (
-          <div className="flex items-center gap-2 text-sm text-base-content/70">
-            <span className="loading loading-spinner loading-sm" />
-            Updating your requests...
-          </div>
-        )} */}
-
-        {loading && (
-  <div className="grid gap-4 md:grid-cols-2">
-    {Array.from({ length: 4 }).map((_, i) => (
-      <div
-        key={i}
-        className="animate-pulse relative overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.28),transparent_60%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.9),transparent_55%)] p-[1.5px]"
-      >
-        <div className="flex h-full flex-col gap-3 rounded-3xl bg-gradient-to-b from-slate-900/95 via-slate-900/98 to-black/95 p-4 backdrop-blur-xl">
-          {/* avatar shimmer */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400/40 via-yellow-500/30 to-amber-600/40" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 w-32 rounded-full bg-amber-300/25" />
-              <div className="h-2 w-40 rounded-full bg-amber-300/15" />
-            </div>
-          </div>
-
-          {/* description shimmer */}
-          <div className="space-y-2">
-            <div className="h-2 w-full rounded-full bg-amber-200/15" />
-            <div className="h-2 w-3/4 rounded-full bg-amber-200/15" />
-          </div>
-
-          {/* skill shimmer */}
-          <div className="flex gap-1.5 flex-wrap">
-            {Array.from({ length: 3 }).map((_, j) => (
-              <div
-                key={j}
-                className="h-3 w-12 rounded-full bg-amber-300/20"
-              />
-            ))}
-          </div>
-
-          {/* buttons shimmer */}
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <div className="h-8 w-1/2 rounded-full bg-red-400/25" />
-            <div className="h-8 w-1/2 rounded-full bg-gradient-to-r from-amber-300/40 to-yellow-400/40" />
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-)}
-
+        {loading && renderShimmer()}
 
         {!loading && requestList.length === 0 && renderEmptyState()}
 
@@ -214,6 +179,13 @@ const Requests = () => {
               const initials = getInitials(firstName, lastName);
               const skillList = normalizeSkills(skills).slice(0, 6);
 
+              const isOnline = !!onlineUsers?.[_id];
+              const lastSeenIso = lastSeenMap?.[_id];
+              const lastSeenText =
+                !isOnline && lastSeenIso && formatLastSeen
+                  ? formatLastSeen(lastSeenIso)
+                  : null;
+
               return (
                 <div
                   key={req._id || _id}
@@ -221,8 +193,8 @@ const Requests = () => {
                 >
                   <div className="flex h-full flex-col gap-3 rounded-3xl bg-gradient-to-b from-slate-900/95 via-slate-900/98 to-black/95 p-4 backdrop-blur-2xl transition-transform duration-200 group-hover:-translate-y-[2px]">
                     <div className="flex items-center gap-3">
-                      <div className="avatar">
-                        <div className="w-12 rounded-full ring ring-offset-2 ring-offset-slate-900 ring-amber-400/80">
+                      <div className="avatar relative">
+                        <div className="w-12 rounded-full ring ring-offset-2 ring-offset-slate-900 ring-amber-400/80 overflow-hidden">
                           {photoUrl ? (
                             <img
                               src={photoUrl}
@@ -234,13 +206,29 @@ const Requests = () => {
                             </div>
                           )}
                         </div>
+                        {isOnline && (
+                          <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border border-slate-900 bg-emerald-400 shadow-[0_0_0_3px_rgba(16,185,129,0.45)] animate-pulse" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <h2 className="text-base font-semibold text-base-content">
                           {firstName} {lastName}
                         </h2>
-                        <p className="text-xs text-base-content/60">
-                          {gender || "Developer"} • wants to collaborate
+                        <p className="text-xs text-base-content/60 flex items-center gap-1">
+                          {gender || "Developer"}
+                          <span>•</span>
+                          {isOnline ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Online now
+                            </span>
+                          ) : lastSeenText ? (
+                            <span className="text-[11px] text-slate-300">
+                              {lastSeenText}
+                            </span>
+                          ) : (
+                            "wants to collaborate"
+                          )}
                         </p>
                       </div>
                     </div>
