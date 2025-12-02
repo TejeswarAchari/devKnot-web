@@ -74,7 +74,7 @@ npm install
 Create `.env`:
 
 MONGODB_URI=mongodb+srv://<your-atlas-url>/devKnot  
-JWT_SECRET_KEY=TejaSecretKey  
+JWT_SECRET_KEY= your Secret key  
 PORT=7777  
 CLIENT_ORIGIN=http://localhost:5173  
 NODE_ENV=development
