@@ -26,79 +26,170 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // 🔐 extra states for password UI + validation
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [firstNameError, setFirstNameError] = useState("");
+
   const isLogin = mode === "login";
+
+  const validatePassword = (value) => {
+    // Only validate on signup
+    if (isLogin) {
+      setPasswordError("");
+      return true;
+    }
+
+    const issues = [];
+    if (value.length < 8) issues.push("at least 8 characters");
+    if (!/[A-Z]/.test(value)) issues.push("one uppercase letter");
+    if (!/\d/.test(value)) issues.push("one number");
+    if (!/[!@#$%^&*()[\]{};:'\"\\|,.<>/?_\-+~=]/.test(value))
+      issues.push("one special character");
+
+    if (issues.length > 0) {
+      setPasswordError(`Password must contain ${issues.join(", ")}.`);
+      return false;
+    }
+
+    setPasswordError("");
+    return true;
+  };
+
+  const validateFirstName = (value) => {
+    // Only validate on signup
+    if (isLogin) {
+      setFirstNameError("");
+      return true;
+    }
+
+    if (!value || value.trim().length < 4) {
+      setFirstNameError("First name must be at least 4 characters.");
+      return false;
+    }
+
+    setFirstNameError("");
+    return true;
+  };
 
   const handleChange = (e) => {
     setError("");
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+
+    if (name === "password") {
+      validatePassword(value);
+    }
+
+    if (name === "firstName") {
+      validateFirstName(value);
+    }
   };
 
   const fetchAndStoreUser = async () => {
-  try {
-    const res = await axios.get(BASE_URL + "profile/view", {
-      withCredentials: true,
-    });
+    try {
+      const res = await axios.get(BASE_URL + "profile/view", {
+        withCredentials: true,
+      });
 
-    // your backend earlier used res.data for user in Body.jsx
-    const userData = res.data?.user || res.data?.data || res.data;
-    dispatch(addUser(userData));
-  } catch (err) {
-    console.error("Error fetching profile after auth:", err);
-  }
-};
+      // your backend earlier used res.data for user in Body.jsx
+      const userData = res.data?.user || res.data?.data || res.data;
+      dispatch(addUser(userData));
+    } catch (err) {
+      console.error("Error fetching profile after auth:", err);
+    }
+  };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+    // 🚫 Extra guard: if signup and fields invalid, block submit
+    if (!isLogin) {
+      const isFirstNameValid = validateFirstName(formData.firstName);
+      const isPasswordValid = validatePassword(formData.password);
 
-  try {
-    const endpoint = isLogin ? "login" : "signup";
+      if (!isFirstNameValid || !isPasswordValid) {
+        setLoading(false);
+        return;
+      }
+    }
 
-    const payload = isLogin
-      ? {
-          email: formData.email,
-          password: formData.password,
+    try {
+      const endpoint = isLogin ? "login" : "signup";
+
+      const payload = isLogin
+        ? {
+            email: formData.email,
+            password: formData.password,
+          }
+        : {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            password: formData.password,
+          };
+
+      // 1️⃣ Hit login / signup as usual
+      await axios.post(BASE_URL + endpoint, payload, {
+        withCredentials: true,
+      });
+
+      // 2️⃣ Immediately fetch the full, canonical profile
+      await fetchAndStoreUser();
+
+      // 3️⃣ Go to home (or profile if you prefer)
+      navigate("/");
+    } catch (err) {
+      console.error("Auth error:", err?.response || err);
+
+      const data = err?.response?.data;
+      let rawMsg = "";
+
+      // Support many possible backend formats
+      if (typeof data === "string") {
+        rawMsg = data;
+      } else if (typeof data === "object" && data !== null) {
+        rawMsg = data.message || data.error || data.msg || "";
+      }
+
+      let finalMsg = rawMsg || "Something went wrong. Please try again.";
+
+      // 📨 Friendlier message for existing email on signup
+      if (!isLogin) {
+        const haystack =
+          (rawMsg || "") + " " + (typeof data === "object" ? JSON.stringify(data) : "");
+        const lower = haystack.toLowerCase();
+
+        if (
+          lower.includes("already") &&
+          (lower.includes("email") ||
+            lower.includes("user") ||
+            lower.includes("exists") ||
+            lower.includes("registered"))
+        ) {
+          finalMsg =
+            "This email is already registered. Please log in instead.";
         }
-      : {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password,
-        };
+      }
 
-    // 1️⃣ Hit login / signup as usual
-    await axios.post(BASE_URL + endpoint, payload, {
-      withCredentials: true,
-    });
+      setError(finalMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // 2️⃣ Immediately fetch the full, canonical profile
-    await fetchAndStoreUser();
-
-    // 3️⃣ Go to home (or profile if you prefer)
-    navigate("/");
-  } catch (err) {
-    console.error("Auth error:", err);
-    const msg =
-      err?.response?.data?.message ||
-      err?.response?.data?.error ||
-      "Something went wrong. Please try again.";
-    setError(msg);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  
   const switchMode = (nextMode) => {
     if (mode === nextMode) return;
     setMode(nextMode);
     setError("");
+    setPasswordError("");
+    setFirstNameError("");
   };
 
   return (
@@ -208,6 +299,12 @@ const handleSubmit = async (e) => {
                         placeholder="Elon"
                         autoComplete="given-name"
                       />
+                      {/* First name validation message */}
+                      {firstNameError && (
+                        <p className="mt-1 text-[11px] text-error">
+                          {firstNameError}
+                        </p>
+                      )}
                     </div>
                     <div className="form-control w-1/2">
                       <label className="label py-1">
@@ -252,22 +349,42 @@ const handleSubmit = async (e) => {
                       Password
                     </span>
                   </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-secondary focus:outline-none"
-                    placeholder="••••••••"
-                    autoComplete={isLogin ? "current-password" : "new-password"}
-                    required
-                  />
+
+                  {/* Wrapper to place eye icon inside input */}
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm pr-10 focus:border-secondary focus:outline-none"
+                      placeholder="••••••••"
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="btn btn-ghost btn-xs absolute right-2 top-1/2 -translate-y-1/2 px-2"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+
                   <label className="label py-1">
                     <span className="label-text-alt text-[11px] text-base-content/60">
                       Use at least 8 characters. You can set your stack & bio in
                       your profile after signup.
                     </span>
                   </label>
+
+                  {/* Password validation message for signup */}
+                  {!isLogin && passwordError && (
+                    <p className="mt-1 text-[11px] text-error">
+                      {passwordError}
+                    </p>
+                  )}
                 </div>
 
                 <button
