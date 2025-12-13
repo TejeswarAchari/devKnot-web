@@ -36,26 +36,67 @@ const EditProfile = ({ user }) => {
   const [showToast, setShowToast] = useState(false);
   const [error, setError] = useState("");
 
+  //cloudinary image file
+const [photoFile, setPhotoFile] = useState(null);
+const [photoPreview, setPhotoPreview] = useState(user?.photoUrl || "");
+
+//On photo file change
+const handlePhotoChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  setPhotoFile(file);
+
+  // create preview
+  const previewUrl = URL.createObjectURL(file);
+  setPhotoPreview(previewUrl);
+};
+
+
+
+
   const saveProfile = async () => {
     try {
       setSaving(true);
       setError("");
 
-      const payload = {
-        firstName,
-        lastName,
-        photoUrl,
-        about,
-        gender,
-      };
+      // const payload = {
+      //   firstName,
+      //   lastName,
+      //   photoUrl,
+      //   about,
+      //   gender,
+      // };
 
-      if (age !== "") {
-        payload.age = Number(age);
-      }
+      // if (age !== "") {
+      //   payload.age = Number(age);
+      // }
 
-      const res = await axios.patch(BASE_URL + "profile/update", payload, {
-        withCredentials: true,
-      });
+      // const res = await axios.patch(BASE_URL + "profile/update", payload, {
+      //   withCredentials: true,
+      // });
+
+      const formData = new FormData();
+formData.append("firstName", firstName);
+formData.append("lastName", lastName);
+formData.append("about", about);
+formData.append("gender", gender);
+
+if (age !== "") formData.append("age", age);
+if (photoFile) formData.append("photo", photoFile);
+
+const res = await axios.patch(
+  BASE_URL + "profile/update",
+  formData,
+  {
+    withCredentials: true,
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  }
+);
+
+
 
       // old working shape: res.data.data
       dispatch(addUser(res.data.data));
@@ -84,7 +125,7 @@ const EditProfile = ({ user }) => {
     ...user,
     firstName,
     lastName,
-    photoUrl,
+    photoUrl: photoPreview, // 🔥 this line is key
     about,
     gender,
     age: age !== "" ? Number(age) : undefined,
@@ -194,16 +235,25 @@ const EditProfile = ({ user }) => {
               <div className="form-control">
                 <label className="label py-1">
                   <span className="label-text text-xs font-semibold">
-                    Profile photo URL
+                    Profile photo 
                   </span>
                 </label>
-                <input
+                {/* <input
                   type="text"
                   className="input input-sm w-full rounded-xl border-base-300 bg-base-100/90 text-sm focus:border-amber-400 focus:outline-none"
                   value={photoUrl}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                   placeholder="https://your-cdn.com/avatar.png"
-                />
+                /> */}
+
+  <input
+  type="file"
+  accept="image/*"
+  className="file-input file-input-sm w-full"
+  onChange={handlePhotoChange}
+/>
+
+
                 <label className="label py-1">
                   <span className="label-text-alt text-[10px] text-base-content/60">
                     If empty, we&apos;ll show your initials with a gradient.
