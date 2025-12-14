@@ -9,6 +9,8 @@ export default function NetworkStatusToast() {
   const prevOnlineRef = useRef(isOnline);
   const timerRef = useRef(null);
 
+  // Responding to external system changes (network status)
+  // setState here is correct pattern for synchronizing with external state
   useEffect(() => {
     const wasOffline = !prevOnlineRef.current;
     prevOnlineRef.current = isOnline;
@@ -21,13 +23,15 @@ export default function NetworkStatusToast() {
 
     if (!isOnline) {
       // User went offline - show immediately
-      // This setState is responding to external system (network) changes
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMode("offline");
+       
       setVisible(true);
     } else if (wasOffline) {
       // User came back online - show "back online" message
+       
       setMode("back");
+       
       setVisible(true);
       // Hide after 3 seconds
       timerRef.current = setTimeout(() => {

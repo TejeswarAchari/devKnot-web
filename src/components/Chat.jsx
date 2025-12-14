@@ -326,7 +326,7 @@ const Chat = () => {
     return selfMessages[selfMessages.length - 1].status || "sent";
   }, [messages]);
 
-  const lastStatus = useMemo(() => getLastSelfStatus(), [getLastSelfStatus]);
+  const lastStatus = getLastSelfStatus();
 
   const renderStatusLabel = useCallback((status) => {
     if (!status) return null;
