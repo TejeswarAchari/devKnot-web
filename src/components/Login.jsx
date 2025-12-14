@@ -44,7 +44,7 @@ const Login = () => {
     if (value.length < 8) issues.push("at least 8 characters");
     if (!/[A-Z]/.test(value)) issues.push("one uppercase letter");
     if (!/\d/.test(value)) issues.push("one number");
-    if (!/[!@#$%^&*()[\]{};:'\"\\|,.<>/?_\-+~=]/.test(value))
+    if (!/[!@#$%^&*()[\]{};:'"\\|,.<>/?_\-+~=]/.test(value))
       issues.push("one special character");
 
     if (issues.length > 0) {

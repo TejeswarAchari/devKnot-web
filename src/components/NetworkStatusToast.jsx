@@ -1,24 +1,45 @@
 // src/components/NetworkStatusToast.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 
 export default function NetworkStatusToast() {
   const isOnline = useNetworkStatus();
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState("offline"); // "offline" | "back"
+  const prevOnlineRef = useRef(isOnline);
+  const timerRef = useRef(null);
 
   useEffect(() => {
+    const wasOffline = !prevOnlineRef.current;
+    prevOnlineRef.current = isOnline;
+
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
     if (!isOnline) {
+      // User went offline - show immediately
+      // This setState is responding to external system (network) changes
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMode("offline");
       setVisible(true);
-    } else {
-      // When it comes back online, show "Back online" for a few seconds
-      if (visible) {
-        setMode("back");
-        const timer = setTimeout(() => setVisible(false), 3000);
-        return () => clearTimeout(timer);
-      }
+    } else if (wasOffline) {
+      // User came back online - show "back online" message
+      setMode("back");
+      setVisible(true);
+      // Hide after 3 seconds
+      timerRef.current = setTimeout(() => {
+        setVisible(false);
+      }, 3000);
     }
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
   }, [isOnline]);
 
   if (!visible) return null;
