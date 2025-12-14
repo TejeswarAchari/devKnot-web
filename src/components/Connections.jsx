@@ -82,6 +82,14 @@ const Connections = () => {
     return Array.isArray(connections) ? connections : connections?.data || [];
   }, [connections]);
 
+  // Memoize resolved user profiles to avoid redundant resolveUser calls
+  const resolvedConnections = useMemo(() => {
+    return connectionList.map((conn) => ({
+      connection: conn,
+      profile: resolveUser(conn),
+    }));
+  }, [connectionList]);
+
   // Memoize getUnreadCount to prevent recreation
   const getUnreadCountMemo = useCallback(
     (userId) => {
@@ -102,22 +110,21 @@ const Connections = () => {
 
   // 🔥 Memoize filtered connections to avoid recomputing on every render
   const filteredConnections = useMemo(() => {
-    return connectionList.filter((conn) => {
-      const profile = resolveUser(conn);
+    return resolvedConnections.filter(({ profile }) => {
       if (!profile) return false;
       return profile.firstName
         ?.toLowerCase()
         .includes(searchTerm.trim().toLowerCase());
     });
-  }, [connectionList, searchTerm]);
+  }, [resolvedConnections, searchTerm]);
 
   // 🔥 Memoize sorted connections to avoid recomputing on every render
   const sortedConnections = useMemo(() => {
     return filteredConnections
       .slice() // Create a copy to avoid mutating original array
       .sort((a, b) => {
-        const userA = resolveUser(a);
-        const userB = resolveUser(b);
+        const userA = a.profile;
+        const userB = b.profile;
         if (!userA || !userB) return 0;
 
         const unreadA = getUnreadCountMemo(userA._id);
@@ -212,8 +219,7 @@ const Connections = () => {
 
         {!loading && filteredConnections.length > 0 && (
           <div className="space-y-3">
-            {sortedConnections.map((conn) => {
-              const profile = resolveUser(conn);
+            {sortedConnections.map(({ connection: conn, profile }) => {
               if (!profile) return null;
 
               const { _id, firstName, lastName, photoUrl, about, role, title } = profile;
