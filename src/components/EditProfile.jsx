@@ -23,7 +23,6 @@ const EditProfile = ({ user }) => {
 
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
-  const [photoUrl, setPhotoUrl] = useState(user?.photoUrl || "");
   const [age, setAge] = useState(
     user?.age === undefined || user?.age === null ? "" : String(user.age)
   );

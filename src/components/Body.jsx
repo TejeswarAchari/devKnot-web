@@ -3,19 +3,14 @@
 
 
 // src/components/Body.jsx
-import React, { useEffect, useState, createContext } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import NavBar from "./NavBar";
 import Footer from "./Footer";
 import { useDispatch, useSelector } from "react-redux";
 import { getSocket } from "../utils/socket";
 import { addNotification, clearNotification } from "../utils/notificationSlice";
-
-// 🔹 Export context so children can consume online + lastSeen
-export const OnlineStatusContext = createContext({
-  onlineUsers: {}, // { [userId]: true/false }
-  lastSeenMap: {}, // { [userId]: ISOString }
-});
+import { OnlineStatusContext } from "../context/OnlineStatusContext";
 
 // small helper to format last seen text
 const formatLastSeen = (iso) => {
@@ -159,10 +154,12 @@ const Body = () => {
 
   return (
     <OnlineStatusContext.Provider
-      value={{ onlineUsers, lastSeenMap, formatLastSeen }}
+      value={useMemo(
+        () => ({ onlineUsers, lastSeenMap, formatLastSeen }),
+        [onlineUsers, lastSeenMap]
+      )}
     >
       <div className="min-h-screen bg-base-100 text-base-content">
-        {/* global soft gradient background */}
         <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.12),transparent_60%),radial-gradient(circle_at_bottom,_rgba(15,23,42,0.95),transparent_55%)]" />
 
         <div className="flex min-h-screen flex-col">

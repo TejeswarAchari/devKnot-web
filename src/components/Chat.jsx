@@ -2,7 +2,7 @@
 
 
 // src/components/Chat.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
@@ -24,21 +24,22 @@ const Chat = () => {
   const bottomRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
 
-  const formatTime = (iso) => {
+  const formatTime = useCallback((iso) => {
     if (!iso) return "";
     const d = new Date(iso);
     return d.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
+  }, []);
 
-  const resolveFileUrl = (url) => {
+  const resolveFileUrl = useCallback((url) => {
     if (!url) return null;
     if (url.startsWith("http")) return url;
     return `${BASE_URL}${url.replace(/^\//, "")}`;
-  };
+  }, []);
 
   // 1) Load history
   useEffect(() => {
@@ -96,7 +97,7 @@ const Chat = () => {
     };
 
     fetchHistory();
-  }, [userId, targetUserId]);
+  }, [userId, targetUserId, resolveFileUrl]);
 
   // 2) Socket join + listeners
   useEffect(() => {
@@ -211,16 +212,28 @@ const Chat = () => {
       socket.off("messageDeleted", onMessageDeleted);
       socket.off("userOnlineStatus", onUserOnlineStatus);
     };
-  }, [userId, targetUserId, user?.firstName]);
+  }, [userId, targetUserId, user?.firstName, resolveFileUrl]);
 
-  // auto-scroll
+  // auto-scroll with debouncing to avoid too many scroll operations
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
     }
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (bottomRef.current) {
+        bottomRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
+
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (!newMessage.trim()) return;
     if (!userId || !targetUserId) return;
 
@@ -237,30 +250,33 @@ const Chat = () => {
 
     setNewMessage("");
     socket.emit("stopTyping", { userId, targetUserId });
-  };
+  }, [newMessage, userId, targetUserId, user?.firstName]);
 
-  const handleChange = (e) => {
-    const value = e.target.value;
-    setNewMessage(value);
+  const handleChange = useCallback(
+    (e) => {
+      const value = e.target.value;
+      setNewMessage(value);
 
-    if (!userId || !targetUserId) return;
-    const socket = getSocket();
+      if (!userId || !targetUserId) return;
+      const socket = getSocket();
 
-    socket.emit("typing", { userId, targetUserId });
+      socket.emit("typing", { userId, targetUserId });
 
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
 
-    typingTimeoutRef.current = setTimeout(() => {
-      socket.emit("stopTyping", { userId, targetUserId });
-    }, 800);
-  };
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit("stopTyping", { userId, targetUserId });
+      }, 800);
+    },
+    [userId, targetUserId]
+  );
 
-  const handleDelete = (messageId) => {
+  const handleDelete = useCallback((messageId) => {
     const socket = getSocket();
     socket.emit("deleteMessage", { messageId });
-  };
+  }, []);
 
   const openFilePicker = () => {
     if (fileInputRef.current) {
@@ -304,25 +320,29 @@ const Chat = () => {
     }
   };
 
-  const getLastSelfStatus = () => {
+  const getLastSelfStatus = useCallback(() => {
     const selfMessages = messages.filter((m) => m.self);
     if (selfMessages.length === 0) return null;
     return selfMessages[selfMessages.length - 1].status || "sent";
-  };
+  }, [messages]);
 
   const lastStatus = getLastSelfStatus();
 
-  const renderStatusLabel = (status) => {
+  const renderStatusLabel = useCallback((status) => {
     if (!status) return null;
     if (status === "sent") return "Sent";
     if (status === "delivered") return "Delivered";
     if (status === "seen") return "Seen";
     return status;
-  };
+  }, []);
 
-  const partnerMessage = messages.find((m) => !m.self);
-  const partnerName = partnerMessage?.from || "Dev Partner";
-  const partnerPhotoUrl = partnerMessage?.photoUrl || null;
+  const partnerInfo = useMemo(() => {
+    const partnerMessage = messages.find((m) => !m.self);
+    return {
+      name: partnerMessage?.from || "Dev Partner",
+      photoUrl: partnerMessage?.photoUrl || null,
+    };
+  }, [messages]);
 
   return (
     <>
@@ -337,10 +357,10 @@ const Chat = () => {
             <div className="flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/90 px-4 py-3">
               <div className="avatar">
                 <div className="w-10 rounded-full ring ring-offset-2 ring-offset-slate-950 ring-amber-400/80 overflow-hidden">
-                  {partnerPhotoUrl ? (
+                  {partnerInfo.photoUrl ? (
                     <img
-                      src={partnerPhotoUrl}
-                      alt={partnerName}
+                      src={partnerInfo.photoUrl}
+                      alt={partnerInfo.name}
                       className="object-cover w-full h-full"
                     />
                   ) : (
@@ -354,7 +374,7 @@ const Chat = () => {
               <div className="flex flex-1 flex-col">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold text-slate-50">
-                    {partnerName}
+                    {partnerInfo.name}
                   </h2>
                   {isTargetOnline ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">

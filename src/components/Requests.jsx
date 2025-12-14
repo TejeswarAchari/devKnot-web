@@ -5,7 +5,7 @@ import axios from "axios";
 import BASE_URL from "../utils/constants";
 import { useDispatch, useSelector } from "react-redux";
 import { addRequests, removeRequests } from "../utils/requestSlice";
-import { OnlineStatusContext } from "./Body";
+import { OnlineStatusContext } from "../context/OnlineStatusContext";
 
 const getInitials = (firstName = "", lastName = "") => {
   const f = (firstName || "").trim();

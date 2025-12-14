@@ -1,7 +1,7 @@
 
 
 // src/components/Feed.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
 import { useDispatch, useSelector } from "react-redux";
@@ -41,29 +41,42 @@ const Feed = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
-  const handleSendRequest = async (status, userId) => {
-    try {
-      await axios.post(
-        `${BASE_URL}request/send/${status}/${userId}`,
-        {},
-        { withCredentials: true }
-      );
+  const handleSendRequest = useCallback(
+    async (status, userId) => {
+      try {
+        await axios.post(
+          `${BASE_URL}request/send/${status}/${userId}`,
+          {},
+          { withCredentials: true }
+        );
 
-      dispatch(removeUserFromFeed(userId));
-    } catch (err) {
-      console.error("Error sending request:", err);
-    }
-  };
+        dispatch(removeUserFromFeed(userId));
+      } catch (err) {
+        console.error("Error sending request:", err);
+      }
+    },
+    [dispatch]
+  );
 
-  const handleSwipe = (direction, userObj) => {
-    if (!userObj || !userObj._id) return;
+  const handleSwipe = useCallback(
+    (direction, userObj) => {
+      if (!userObj || !userObj._id) return;
 
-    if (direction === "right") {
-      handleSendRequest("interested", userObj._id);
-    } else if (direction === "left") {
-      handleSendRequest("ignored", userObj._id);
-    }
-  };
+      if (direction === "right") {
+        handleSendRequest("interested", userObj._id);
+      } else if (direction === "left") {
+        handleSendRequest("ignored", userObj._id);
+      }
+    },
+    [handleSendRequest]
+  );
+
+  // Memoize the visible feed stack to avoid unnecessary recalculations
+  const visibleFeedStack = useMemo(() => {
+    if (!feed || feed.length === 0) return [];
+    // cap visible stack for performance + visual
+    return feed.slice(0, 4).reverse();
+  }, [feed]);
 
   // 🦴 Skeleton when loading initial feed
   if (loading && (!feed || feed.length === 0)) {
@@ -166,30 +179,25 @@ const Feed = () => {
 
         {/* Swipe stack */}
         <div className="relative mt-4 h-[520px] w-full max-w-md lg:mt-0">
-          {feed &&
-            feed
-              .slice(0, 4) // cap visible stack for performance + visual
-              .slice()
-              .reverse()
-              .map((userObj, index) => (
-                <TinderCard
-                  key={userObj._id}
-                  className="absolute inset-0 select-none touch-none"
-                  onSwipe={(dir) => handleSwipe(dir, userObj)}
-                  preventSwipe={["up", "down"]}
-                >
-                  <div
-                    className="h-full w-full transition-transform duration-300"
-                    style={{
-                      transform: `scale(${1 - index * 0.03}) translateY(${
-                        index * 6
-                      }px)`,
-                    }}
-                  >
-                    <UserCard user={userObj} onSendRequest={handleSendRequest} />
-                  </div>
-                </TinderCard>
-              ))}
+          {visibleFeedStack.map((userObj, index) => (
+            <TinderCard
+              key={userObj._id}
+              className="absolute inset-0 select-none touch-none"
+              onSwipe={(dir) => handleSwipe(dir, userObj)}
+              preventSwipe={["up", "down"]}
+            >
+              <div
+                className="h-full w-full transition-transform duration-300"
+                style={{
+                  transform: `scale(${1 - index * 0.03}) translateY(${
+                    index * 6
+                  }px)`,
+                }}
+              >
+                <UserCard user={userObj} onSendRequest={handleSendRequest} />
+              </div>
+            </TinderCard>
+          ))}
         </div>
       </div>
     </div>

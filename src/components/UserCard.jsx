@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 
 /**
  * UserCard
@@ -158,4 +158,4 @@ const UserCard = ({ user, onSendRequest }) => {
   );
 };
 
-export default UserCard;
+export default memo(UserCard);

@@ -2,13 +2,13 @@
 
 
 // src/components/Connections.jsx
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useMemo, useCallback } from "react";
 import axios from "axios";
 import BASE_URL from "../utils/constants";
 import { useDispatch, useSelector } from "react-redux";
 import { addConnections } from "../utils/connectionSlice";
 import { Link } from "react-router-dom";
-import { OnlineStatusContext } from "./Body";
+import { OnlineStatusContext } from "../context/OnlineStatusContext";
 
 const getInitials = (firstName = "", lastName = "") => {
   const f = (firstName || "").trim();
@@ -44,7 +44,7 @@ const Connections = () => {
   const { onlineUsers, lastSeenMap, formatLastSeen } =
     useContext(OnlineStatusContext) || {};
 
-  const fetchConnections = async () => {
+  const fetchConnections = useCallback(async () => {
     try {
       setLoading(true);
       const res = await axios.get(BASE_URL + "user/connections", {
@@ -56,25 +56,11 @@ const Connections = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     fetchConnections();
-  }, []);
-
-  const getUnreadCount = (userId) => {
-    if (!notifications) return 0;
-    if (typeof notifications === "object" && !Array.isArray(notifications)) {
-      return notifications[userId] || 0;
-    }
-    if (Array.isArray(notifications)) {
-      const entry =
-        notifications.find((n) => n.userId === userId) ||
-        notifications.find((n) => n.fromUserId === userId);
-      return entry?.count || entry?.unread || 0;
-    }
-    return 0;
-  };
+  }, [fetchConnections]);
 
   const renderEmptyState = () => (
     <div className="flex flex-1 items-center justify-center px-4 py-10">
@@ -91,18 +77,72 @@ const Connections = () => {
     </div>
   );
 
-  const connectionList = Array.isArray(connections)
-    ? connections
-    : connections?.data || [];
+  // Memoize connection list to prevent recalculation
+  const connectionList = useMemo(() => {
+    return Array.isArray(connections) ? connections : connections?.data || [];
+  }, [connections]);
 
-  // 🔥 NEW: filter based on search
-  const filteredConnections = connectionList.filter((conn) => {
-    const profile = resolveUser(conn);
-    if (!profile) return false;
-    return profile.firstName
-      ?.toLowerCase()
-      .includes(searchTerm.trim().toLowerCase());
-  });
+  // Memoize resolved user profiles to avoid redundant resolveUser calls
+  const resolvedConnections = useMemo(() => {
+    return connectionList.map((conn) => ({
+      connection: conn,
+      profile: resolveUser(conn),
+    }));
+  }, [connectionList]);
+
+  // Memoize getUnreadCount to prevent recreation
+  const getUnreadCountMemo = useCallback(
+    (userId) => {
+      if (!notifications) return 0;
+      if (typeof notifications === "object" && !Array.isArray(notifications)) {
+        return notifications[userId] || 0;
+      }
+      if (Array.isArray(notifications)) {
+        const entry =
+          notifications.find((n) => n.userId === userId) ||
+          notifications.find((n) => n.fromUserId === userId);
+        return entry?.count || entry?.unread || 0;
+      }
+      return 0;
+    },
+    [notifications]
+  );
+
+  // 🔥 Memoize filtered connections to avoid recomputing on every render
+  const filteredConnections = useMemo(() => {
+    return resolvedConnections.filter(({ profile }) => {
+      if (!profile) return false;
+      return profile.firstName
+        ?.toLowerCase()
+        .includes(searchTerm.trim().toLowerCase());
+    });
+  }, [resolvedConnections, searchTerm]);
+
+  // 🔥 Memoize sorted connections to avoid recomputing on every render
+  const sortedConnections = useMemo(() => {
+    return filteredConnections
+      .slice() // Create a copy to avoid mutating original array
+      .sort((a, b) => {
+        const userA = a.profile;
+        const userB = b.profile;
+        if (!userA || !userB) return 0;
+
+        const unreadA = getUnreadCountMemo(userA._id);
+        const unreadB = getUnreadCountMemo(userB._id);
+
+        // 1️⃣ unread first (descending)
+        if (unreadA !== unreadB) return unreadB - unreadA;
+
+        const onlineA = onlineUsers?.[userA._id] ? 1 : 0;
+        const onlineB = onlineUsers?.[userB._id] ? 1 : 0;
+
+        // 2️⃣ online before offline
+        if (onlineA !== onlineB) return onlineB - onlineA;
+
+        // 3️⃣ fallback alphabetical for stable UX
+        return userA.firstName.localeCompare(userB.firstName);
+      });
+  }, [filteredConnections, getUnreadCountMemo, onlineUsers]);
 
   const renderShimmer = () => (
     <div className="space-y-3">
@@ -179,35 +219,13 @@ const Connections = () => {
 
         {!loading && filteredConnections.length > 0 && (
           <div className="space-y-3">
-            {filteredConnections
-  // 🔥 SORT: unread first → online second → others
-  .sort((a, b) => {
-    const userA = resolveUser(a);
-    const userB = resolveUser(b);
-    if (!userA || !userB) return 0;
-
-    const unreadA = getUnreadCount(userA._id);
-    const unreadB = getUnreadCount(userB._id);
-
-    // 1️⃣ unread first (descending)
-    if (unreadA !== unreadB) return unreadB - unreadA;
-
-    const onlineA = onlineUsers?.[userA._id] ? 1 : 0;
-    const onlineB = onlineUsers?.[userB._id] ? 1 : 0;
-
-    // 2️⃣ online before offline
-    if (onlineA !== onlineB) return onlineB - onlineA;
-
-    // 3️⃣ fallback alphabetical for stable UX
-    return userA.firstName.localeCompare(userB.firstName);
-  }).map((conn) => {
-              const profile = resolveUser(conn);
+            {sortedConnections.map(({ connection: conn, profile }) => {
               if (!profile) return null;
 
               const { _id, firstName, lastName, photoUrl, about, role, title } = profile;
               const initials = getInitials(firstName, lastName);
               const targetUserId = _id;
-              const unread = getUnreadCount(targetUserId);
+              const unread = getUnreadCountMemo(targetUserId);
 
               const isOnline = !!onlineUsers?.[targetUserId];
               const lastSeenIso = lastSeenMap?.[targetUserId];
